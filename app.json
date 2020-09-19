@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Test_firebase",
-    "slug": "Test_firebase",
+    "name": "Save Your Photos",
+    "slug": "Save_Your_Photos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
