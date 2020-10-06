@@ -1,7 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
 import React from 'react';
-import { StyleSheet, Text, View, Button, Image, Platform, ActivityIndicator, TouchableOpacity, FlatList, Dimensions, ImageBackground } from 'react-native';
+import { StyleSheet, Text, View, Button, Image, Platform, ActivityIndicator, TouchableOpacity, FlatList, Dimensions, ImageBackground, Animated } from 'react-native';
 import firebase from './FirebaseConfig';
 import * as ImagePicker from 'expo-image-picker';
 import * as Permissions from 'expo-permissions';
@@ -24,7 +24,8 @@ export default class HomeScreen extends React.Component{
     transferred: 0,
     profileImg: null,
     showFunc: false,
-    listImg: []
+    listImg: [],
+    marginAnim: new Animated.Value(-280)
   }
 
   signOut = () => {
@@ -55,7 +56,7 @@ export default class HomeScreen extends React.Component{
   uploadImage = async(uri, name) => {
     const response = await fetch(uri);
     const blob = await response.blob();
-    var uploadTask = firebase.storage().ref().child(this.state.displayEmail + '/' + name).put(blob);
+    var uploadTask = firebase.storage().ref(this.state.displayEmail).child(name).put(blob);
     uploadTask.on(firebase.storage.TaskEvent.STATE_CHANGED, // or 'state_changed'
       (snapshot) => {
         this.setState({uploading: true, transferred: (snapshot.bytesTransferred / snapshot.totalBytes) * 100});
@@ -103,7 +104,7 @@ export default class HomeScreen extends React.Component{
   };
 
   getProfileImg = () => {
-    firebase.storage().ref().child(this.state.displayEmail + '/' + "profile").getDownloadURL()
+    firebase.storage().ref(this.state.displayEmail).child("profile").getDownloadURL()
     .then(downloadURL => {
       this.setState({profileImg: downloadURL});
     })
@@ -116,7 +117,7 @@ export default class HomeScreen extends React.Component{
   }
 
   getAllImg = () =>{
-    firebase.storage().ref().child(this.state.displayEmail + '/' + "images").listAll()
+    firebase.storage().ref(this.state.displayEmail).child("images").listAll()
     .then((res) => {
       if (res) {
         res.items.forEach((itemRef) =>{
@@ -147,6 +148,22 @@ export default class HomeScreen extends React.Component{
     )
   }
 
+  showRightNav = () => {    
+    this.setState({showFunc: true});
+    this.state.marginAnim.setValue(-280);
+    Animated.spring(this.state.marginAnim, {
+      toValue: -10,
+    }).start();
+  }
+
+  hideRightNav = () => {
+    this.setState({showFunc: false});
+    this.state.marginAnim.setValue(-10);
+    Animated.spring(this.state.marginAnim, {
+      toValue: -280,
+    }).start();
+  }
+
   componentDidMount() {
     this.getPermissionAsync();
     this.getProfileImg();
@@ -158,46 +175,49 @@ export default class HomeScreen extends React.Component{
       <View style={{flex: 1, zIndex: 1, elevation: 1}}>
         {/* Status bar */}
         <View style={{height: Constants.statusBarHeight}}>          
-          <StatusBar backgroundColor="white"></StatusBar>
+          <StatusBar backgroundColor="white" style="auto"></StatusBar>
         </View>
         {/* Show or hide right nav */}
         {this.state.showFunc ? (
-          <View style={styles.rightNav}>
+          <View style={styles.blur}>
             {/* Blur View */}
-            <TouchableOpacity style={{flex:1, cursor: "default"}} onPress={()=>{this.setState({showFunc: false})}}>
+            <TouchableOpacity style={{flex:1, cursor: "default"}} onPress={this.hideRightNav}>
               <BlurView intensity={100} style={StyleSheet.absoluteFill}>
               </BlurView>
             </TouchableOpacity>
-            {/* Right nav */}
-            <ImageBackground source={BackgroundNav} style={{flex: 2, alignItems: "center", maxWidth: 300}}>
-              <View style={{width: "100%", marginBottom: 10, alignItems: 'center'}}>
-                <TouchableOpacity style={{alignSelf: "flex-start"}} onPress={()=>{this.setState({showFunc: false})}}>
-                  <Image source={CloseIcon} style={{width: 30, height: 30}}/>
-                </TouchableOpacity>
-                <Image source={{ uri: this.state.profileImg}} style={{ width: 40, height: 40, borderRadius: 40, }} />
-                <Text style={{color: "#fff"}}>{this.state.displayEmail}</Text>
-              </View>
-              <View style={{height: 1, width: "100%", backgroundColor: "#fc7b03"}}></View>
-              <View style={{width: "100%", marginVertical: 30, alignItems: 'center'}}>
-                <TouchableOpacity style ={{width: "100%", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#fff"}} onPress={()=>{this._pickImage("profile")}}>
-                  <Text style={{color: "white", textAlign: "center"}}>Change Profile Image</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style ={{width: "100%", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#fff"}} onPress={()=>this.signOut()}>
-                  <Text style={{color: "white", textAlign: "center"}}>LOGOUT</Text>
-                </TouchableOpacity>
-              </View>
-            </ImageBackground>
           </View>
         ) : (
           <View></View>
         )}
+
+        {/* Right nav */}
+        <Animated.View style={[styles.rightNav, {marginRight: this.state.marginAnim}]}>
+          <ImageBackground source={BackgroundNav} style={{width: "100%", height: "100%",}}>
+            <View style={{width: "100%", marginBottom: 10, alignItems: 'center'}}>
+              <TouchableOpacity style={{alignSelf: "flex-start"}} onPress={this.hideRightNav}>
+                <Image source={CloseIcon} style={{width: 30, height: 30}}/>
+              </TouchableOpacity>
+              <Image source={{ uri: this.state.profileImg}} style={{ width: 40, height: 40, borderRadius: 40, }} />
+              <Text style={{color: "#fff"}}>{this.state.displayEmail}</Text>
+            </View>
+            <View style={{height: 1, width: "100%", backgroundColor: "#fc7b03"}}></View>
+            <View style={{width: "100%", marginVertical: 30, alignItems: 'center'}}>
+              <TouchableOpacity style ={{width: "100%", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#fff"}} onPress={()=>{this._pickImage("profile")}}>
+                <Text style={{color: "white", textAlign: "center"}}>Change Profile Image</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style ={{width: "100%", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#fff"}} onPress={()=>this.signOut()}>
+                <Text style={{color: "white", textAlign: "center"}}>LOGOUT</Text>
+              </TouchableOpacity>
+            </View>
+          </ImageBackground>
+        </Animated.View>
 
         {/* Header */}
         <View style={{flexDirection: "row", alignItems: "center", paddingVertical: 10, backgroundColor: "#555"}}>
           <View style={{flex:1, alignItems: "center"}}>
             <Text style={{color: "white", fontSize: 20, fontWeight: "bold", textAlignVertical: "center"}}>YOUR ALBUM</Text>       
           </View> 
-          <TouchableOpacity style={{alignSelf: "flex-end", marginHorizontal: 10}} onPress={()=>{this.setState({showFunc: true})}}>
+          <TouchableOpacity style={{alignSelf: "flex-end", marginHorizontal: 10}} onPress={this.showRightNav}>
             <Image source={{ uri: this.state.profileImg}} style={{ width: 40, height: 40, borderRadius: 40, }} />
           </TouchableOpacity>            
         </View>        
@@ -247,13 +267,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginBottom: 20
   },
-  rightNav: {
+  blur: {
     position: "absolute", 
     marginTop: Constants.statusBarHeight, 
     width: windowWidth, 
     height: windowHeight, 
-    flexDirection: "row", 
     zIndex: 2, 
     elevation: 2
+  },
+  rightNav: {    
+    marginTop: Constants.statusBarHeight, 
+    width: 280, 
+    height: "100%", 
+    alignItems: "center", 
+    position: "absolute", 
+    top: 0, 
+    right: 0, 
+    zIndex: 3, 
+    elevation: 3,
+    overflow: "hidden"
   }
 });
